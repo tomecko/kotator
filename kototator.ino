@@ -5,12 +5,9 @@ int DIST_TRIGGER = 6;
 int DIST_ECHO = 7;
 
 const int INTERVAL = 100;
-const int DIST_TIMEOUT = 8000;
 
-String state = "dirty";
-unsigned long cleanTime;
-unsigned long dirtyTime;
-bool recentlyDirty = false;
+String state = "clean";
+bool dirty = false;
 
 void setup()
 {
@@ -32,40 +29,19 @@ void loop()
 {
   Serial.print("========= ");
   Serial.println(millis());
-  bool nowDirty = isNowDirty();
-  if (nowDirty && !recentlyDirty) {
-    Serial.println("Marking as DIRTY");
-    recentlyDirty = true;
-    dirtyTime = millis();
-  }
-  if (nowDirty && recentlyDirty && dirtyTime + DIST_TIMEOUT < millis()) {
-    Serial.println("Long DIRTY, updating dirtyTime");
-    dirtyTime = millis() - DIST_TIMEOUT;
-  }
-  if (!nowDirty) {
-    recentlyDirty = false;
-    Serial.println("No movement in last 8s");
-  }
-  if (isClean()) {
-    Serial.println("Marked as CLEAN");
-    cleanTime = millis();
-  }
-  if (nowDirty && cleanTime > dirtyTime) {
-    Serial.println("Dirty now but marked as CLEAN");
-  }
   
-  Serial.print("cleanTime: ");
-  Serial.print(cleanTime);
-  Serial.print(" , dirtyTime: ");
-  Serial.println(dirtyTime);
-  
-  state = cleanTime > dirtyTime ? "clean" : "dirty";
-  
-  Serial.print("state: ");
-  Serial.println(state);
+  bool prevDirty = dirty;
+  dirty = isNowDirty();
+  bool clean = isClean();
+
+  if (!prevDirty && dirty) {
+    state = "dirty";
+  }
+  if (clean) {
+    state = "clean";
+  }
 
   indicate();
-
   delay(INTERVAL);
 }
 
@@ -84,14 +60,15 @@ float isClean()
   digitalWrite(DIST_TRIGGER, LOW);
   digitalWrite(DIST_ECHO, HIGH);
   CM = pulseIn(DIST_ECHO, HIGH) / 58;
-  Serial.print("Distance: ");
-  Serial.println(CM);
+  // Serial.print("Distance: ");
+  // Serial.println(CM);
   return CM < 10;
 }
 
 void indicate()
 {
+  Serial.println(state);
   digitalWrite(CLEAN, state == "clean" ? HIGH : LOW);
-  digitalWrite(DIRTY, (state == "dirty" || recentlyDirty) ? HIGH : LOW);
+  digitalWrite(DIRTY, dirty || state == "dirty" ? HIGH : LOW);
 }
 
